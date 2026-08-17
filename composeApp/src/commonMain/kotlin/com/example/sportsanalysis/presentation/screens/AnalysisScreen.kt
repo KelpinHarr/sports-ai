@@ -90,7 +90,18 @@ fun AnalysisScreen(
             }
 
             state.error?.let { msg ->
-                Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) {
+                Snackbar(
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                    dismissAction = {
+                        TextButton(
+                            onClick = {
+                                viewModel.dismissError()
+                            }
+                        ) {
+                            Text("Dismiss")
+                        }
+                    }
+                ) {
                     Text(msg)
                 }
             }

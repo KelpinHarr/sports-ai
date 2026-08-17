@@ -22,9 +22,10 @@ kotlinx-coroutines = "1.9.0"
 kotlinx-serialization = "1.7.3"
 kotlinx-datetime = "0.6.1"
 mediapipe = "0.10.14"
-firebase-bom = "33.5.1"
 gitlive-firebase = "2.1.0"
 google-services = "4.4.2"
+mlkitPose = "18.0.0-beta5"
+firebaseBom = "33.16.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -83,7 +84,12 @@ gitlive-firebase-storage = { module = "dev.gitlive:firebase-storage", version.re
 gitlive-firebase-common = { module = "dev.gitlive:firebase-common", version.ref = "gitlive-firebase" }
 
 # Firebase Android BOM
-firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
+firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
+
+mlkit-pose-detection = { module = "com.google.mlkit:pose-detection", version.ref = "mlkitPose" }
+
+firebase-ai = { module = "com.google.firebase:firebase-ai" }
+firebase-appcheck-debug = { module = "com.google.firebase:firebase-appcheck-debug" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
