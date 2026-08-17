@@ -32,22 +32,19 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
 
-            // ─── Added for sports analysis ──────────────────────
             implementation(libs.koin.android)
             implementation(libs.ktor.client.android)
 
-            // CameraX
             implementation(libs.androidx.camera.core)
             implementation(libs.androidx.camera.camera2)
             implementation(libs.androidx.camera.lifecycle)
             implementation(libs.androidx.camera.view)
-            implementation(libs.androidx.camera.video)
 
-            // MediaPipe (on-device pose estimation)
             implementation(libs.mediapipe.tasks.vision)
 
-            // Firebase Android BOM aligns native SDK versions used by GitLive
             implementation(project.dependencies.platform(libs.firebase.bom))
+            implementation(libs.firebase.ai)
+            implementation(libs.firebase.appcheck.debug)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -100,7 +97,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.sportsanalysis"
-        minSdk = libs.versions.android.minSdk.get().toInt()
+        minSdk = 24
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"

@@ -79,6 +79,10 @@ class AnalysisViewModel(
         viewModelScope.launch { poseDetector.release() }
         super.onCleared()
     }
+
+    fun dismissError() {
+        _state.update { it.copy(error = null) }
+    }
 }
 
 data class AnalysisUiState(
