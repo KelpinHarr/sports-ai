@@ -1,0 +1,9 @@
+target 'iosApp' do
+  use_frameworks!
+  platform :ios, '14.0'
+
+  pod 'MediaPipeTasksVision', '~> 0.10.14'
+  pod 'FirebaseAuth'
+  pod 'FirebaseFirestore'
+  pod 'FirebaseStorage'
+end
