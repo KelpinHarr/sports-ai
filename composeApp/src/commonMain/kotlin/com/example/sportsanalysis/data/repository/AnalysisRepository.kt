@@ -11,26 +11,36 @@ class AnalysisRepository(
     private val auth: FirebaseAuth
 ) {
     private fun uid(): String = auth.currentUser?.uid
-        ?: error("Not signed in — call signInAnonymously() first")
+        ?: error("Not signed in — call ensureSignedIn() first")
 
     suspend fun save(analysis: FreeThrowAnalysis): String {
+        ensureSignedIn()
+
+        val userId = uid()
         val ref = firestore
-            .collection("users").document(uid())
+            .collection("users")
+            .document(userId)
             .collection("analyses")
             .document
+
         val id = ref.id
-        ref.set(analysis.copy(id = id, userId = uid()))
+        ref.set(analysis.copy(id = id, userId = userId))
         return id
     }
 
     fun observeHistory(): Flow<List<FreeThrowAnalysis>> {
+        val userId = uid()
+
         return firestore
-            .collection("users").document(uid())
+            .collection("users")
+            .document(userId)
             .collection("analyses")
             .snapshots
-            .map { snap ->
-                snap.documents
-                    .map { it.data<FreeThrowAnalysis>() }
+            .map { snapshot ->
+                snapshot.documents
+                    .mapNotNull { document ->
+                        runCatching { document.data<FreeThrowAnalysis>() }.getOrNull()
+                    }
                     .sortedByDescending { it.timestampMs }
             }
     }

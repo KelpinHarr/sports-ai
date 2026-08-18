@@ -16,7 +16,7 @@ material3 = "1.10.0-alpha05"
 
 androidx-camera = "1.4.0"
 androidx-navigation-compose = "2.8.0-alpha13"
-ktor = "3.0.0"
+ktor = "2.3.12"
 koin = "4.0.0"
 kotlinx-coroutines = "1.9.0"
 kotlinx-serialization = "1.7.3"
@@ -24,7 +24,6 @@ kotlinx-datetime = "0.6.1"
 mediapipe = "0.10.14"
 gitlive-firebase = "2.1.0"
 google-services = "4.4.2"
-mlkitPose = "18.0.0-beta5"
 firebaseBom = "33.16.0"
 
 [libraries]
@@ -85,8 +84,6 @@ gitlive-firebase-common = { module = "dev.gitlive:firebase-common", version.ref 
 
 # Firebase Android BOM
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
-
-mlkit-pose-detection = { module = "com.google.mlkit:pose-detection", version.ref = "mlkitPose" }
 
 firebase-ai = { module = "com.google.firebase:firebase-ai" }
 firebase-appcheck-debug = { module = "com.google.firebase:firebase-appcheck-debug" }

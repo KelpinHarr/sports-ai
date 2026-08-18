@@ -24,13 +24,22 @@ import org.jetbrains.compose.resources.painterResource
 @Composable
 fun App() {
     MaterialTheme {
-        val nav = rememberNavController()
-        NavHost(navController = nav, startDestination = "analyze") {
+        val navController = rememberNavController()
+
+        NavHost(
+            navController = navController,
+            startDestination = "analyze"
+        ) {
             composable("analyze") {
-                AnalysisScreen(onOpenHistory = { nav.navigate("history") })
+                AnalysisScreen(
+                    onOpenHistory = { navController.navigate("history") }
+                )
             }
+
             composable("history") {
-                HistoryScreen(onBack = { nav.popBackStack() })
+                HistoryScreen(
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
     }

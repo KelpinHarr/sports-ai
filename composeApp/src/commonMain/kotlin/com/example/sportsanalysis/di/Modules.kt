@@ -2,7 +2,6 @@ package com.example.sportsanalysis.di
 
 import com.example.sportsanalysis.data.repository.AnalysisRepository
 import com.example.sportsanalysis.domain.analysis.FreeThrowAnalyzer
-import com.example.sportsanalysis.domain.pose.PoseDetectorFactory
 import com.example.sportsanalysis.presentation.screens.AnalysisViewModel
 import com.example.sportsanalysis.presentation.screens.HistoryViewModel
 import dev.gitlive.firebase.Firebase
@@ -18,20 +17,30 @@ private val sharedModule = module {
     single { Firebase.auth }
     single { Firebase.firestore }
 
-    single { AnalysisRepository(get(), get()) }
+    single {
+        AnalysisRepository(
+            firestore = get(),
+            auth = get()
+        )
+    }
 
-    factory { FreeThrowAnalyzer() }
-
-    factory { get<PoseDetectorFactory>().create() }
+    factory {
+        FreeThrowAnalyzer()
+    }
 
     viewModelOf(::AnalysisViewModel)
     viewModelOf(::HistoryViewModel)
 }
 
-fun initKoin(appDeclaration: KoinAppDeclaration = {}) {
+fun initKoin(
+    appDeclaration: KoinAppDeclaration = {}
+) {
     startKoin {
         appDeclaration()
-        modules(sharedModule, platformModule())
+        modules(
+            sharedModule,
+            platformModule()
+        )
     }
 }
 

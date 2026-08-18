@@ -7,31 +7,43 @@ import com.example.sportsanalysis.domain.model.FreeThrowAnalysis
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class HistoryViewModel(
-    private val repo: AnalysisRepository
+    private val repository: AnalysisRepository
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(HistoryUiState(isLoading = true))
-    val state: StateFlow<HistoryUiState> = _state.asStateFlow()
+    private val _uiState = MutableStateFlow(HistoryUiState())
+    val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
-            repo.ensureSignedIn()
-            repo.observeHistory()
-                .catch { e -> _state.value = HistoryUiState(error = e.message) }
-                .collectLatest { list ->
-                    _state.value = HistoryUiState(items = list, isLoading = false)
+            runCatching {
+                repository.ensureSignedIn()
+                repository.observeHistory().collect { items ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            analyses = items,
+                            errorMessage = null
+                        )
+                    }
                 }
+            }.onFailure { throwable ->
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = throwable.message ?: "Failed to load history"
+                    )
+                }
+            }
         }
     }
 }
 
 data class HistoryUiState(
-    val items: List<FreeThrowAnalysis> = emptyList(),
-    val isLoading: Boolean = false,
-    val error: String? = null
+    val isLoading: Boolean = true,
+    val analyses: List<FreeThrowAnalysis> = emptyList(),
+    val errorMessage: String? = null
 )

@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.example.sportsanalysis.AndroidPoseDetector
+import com.example.sportsanalysis.domain.pose.AndroidPoseDetector
 import com.example.sportsanalysis.domain.model.PoseFrame
 import com.example.sportsanalysis.domain.pose.PoseDetector
 import com.example.sportsanalysis.presentation.components.PoseSkeletonOverlay

@@ -16,13 +16,13 @@ actual fun CameraPosePreview(
     highlightedLandmarkIndices: Set<Int>,
     modifier: Modifier
 ) {
-    Box(modifier = modifier.background(Color.Black), contentAlignment = Alignment.Center) {
-        Text("Camera preview not implemented on iOS yet", color = Color.White)
-        PoseSkeletonOverlay(
-            frame = latestFrame,
-            highlighted = highlightedLandmarkIndices,
-            modifier = Modifier.fillMaxSize(),
-            mirror = false
+    Box(
+        modifier = modifier.background(Color.Black),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Camera analysis is implemented for Android in this package.",
+            color = Color.White
         )
     }
 }

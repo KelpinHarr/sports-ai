@@ -8,5 +8,5 @@ import com.example.sportsanalysis.domain.model.PoseFrame
 expect fun CameraPosePreview(
     latestFrame: PoseFrame?,
     highlightedLandmarkIndices: Set<Int>,
-    modifier: Modifier
+    modifier: Modifier = Modifier
 )
