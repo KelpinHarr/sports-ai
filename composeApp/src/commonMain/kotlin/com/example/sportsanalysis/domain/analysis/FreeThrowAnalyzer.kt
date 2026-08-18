@@ -14,188 +14,292 @@ import kotlin.math.absoluteValue
 class FreeThrowAnalyzer(
     private val handedness: Handedness = Handedness.RIGHT
 ) {
-
-    enum class Handedness { LEFT, RIGHT }
+    enum class Handedness {
+        LEFT,
+        RIGHT
+    }
 
     fun analyze(frames: List<PoseFrame>): FreeThrowAnalysis? {
         if (frames.size < 10) return null
 
-        val releaseFrame = findReleaseFrame(frames) ?: return null
-        val dipFrame = findDipFrame(frames) ?: releaseFrame
+        val usableFrames = frames.filter(::hasRequiredLandmarks)
+        if (usableFrames.size < 10) return null
+
+        val releaseFrame = findReleaseFrame(usableFrames) ?: return null
+        val dipFrame = findDipFrame(usableFrames) ?: return null
 
         val metrics = computeMetrics(releaseFrame, dipFrame)
         val issues = detectIssues(metrics)
-        val (acc, style, tech) = scoreFromMetrics(metrics, issues)
-        val overall = ((acc + style + tech) / 3.0).toInt()
+        val (accuracy, style, technique) = scoreFromMetrics(metrics, issues)
+        val overall = ((accuracy + style + technique) / 3.0).toInt()
 
         return FreeThrowAnalysis(
-            timestampMs = frames.last().timestampMs,
-            accuracyScore = acc,
+            timestampMs = usableFrames.last().timestampMs,
+            accuracyScore = accuracy,
             styleScore = style,
-            techniqueScore = tech,
+            techniqueScore = technique,
             overallScore = overall,
             metrics = metrics,
             issues = issues,
-            suggestions = buildSuggestions(issues, metrics)
+            suggestions = buildSuggestions(issues)
         )
     }
 
+    private fun hasRequiredLandmarks(frame: PoseFrame): Boolean {
+        val shootingSide = if (handedness == Handedness.RIGHT) {
+            listOf(
+                PoseLandmarkIndex.RIGHT_SHOULDER,
+                PoseLandmarkIndex.RIGHT_ELBOW,
+                PoseLandmarkIndex.RIGHT_WRIST,
+                PoseLandmarkIndex.RIGHT_HIP,
+                PoseLandmarkIndex.RIGHT_KNEE,
+                PoseLandmarkIndex.RIGHT_ANKLE,
+                PoseLandmarkIndex.LEFT_ANKLE
+            )
+        } else {
+            listOf(
+                PoseLandmarkIndex.LEFT_SHOULDER,
+                PoseLandmarkIndex.LEFT_ELBOW,
+                PoseLandmarkIndex.LEFT_WRIST,
+                PoseLandmarkIndex.LEFT_HIP,
+                PoseLandmarkIndex.LEFT_KNEE,
+                PoseLandmarkIndex.LEFT_ANKLE,
+                PoseLandmarkIndex.RIGHT_ANKLE
+            )
+        }
+
+        val required = shootingSide + listOf(
+            PoseLandmarkIndex.NOSE,
+            PoseLandmarkIndex.LEFT_HIP,
+            PoseLandmarkIndex.RIGHT_HIP
+        )
+
+        return required.distinct().all { index ->
+            frame.landmarks.getOrNull(index)?.visibility?.let { it >= 0.5f } == true
+        }
+    }
+
     private fun findReleaseFrame(frames: List<PoseFrame>): PoseFrame? {
-        val wristIdx = if (handedness == Handedness.RIGHT) PoseLandmarkIndex.RIGHT_WRIST else PoseLandmarkIndex.LEFT_WRIST
-        return frames.minByOrNull { f ->
-            f.landmarks.getOrNull(wristIdx)?.y ?: Float.MAX_VALUE
+        val wristIndex = if (handedness == Handedness.RIGHT) {
+            PoseLandmarkIndex.RIGHT_WRIST
+        } else {
+            PoseLandmarkIndex.LEFT_WRIST
+        }
+
+        return frames.minByOrNull { frame ->
+            frame.landmarks[wristIndex].y
         }
     }
 
     private fun findDipFrame(frames: List<PoseFrame>): PoseFrame? {
-        return frames.maxByOrNull { f ->
-            val lh = f.landmarks.getOrNull(PoseLandmarkIndex.LEFT_HIP)?.y ?: 0f
-            val rh = f.landmarks.getOrNull(PoseLandmarkIndex.RIGHT_HIP)?.y ?: 0f
-            (lh + rh) / 2f
+        return frames.maxByOrNull { frame ->
+            val leftHip = frame.landmarks[PoseLandmarkIndex.LEFT_HIP].y
+            val rightHip = frame.landmarks[PoseLandmarkIndex.RIGHT_HIP].y
+            (leftHip + rightHip) / 2f
         }
     }
 
+    private fun computeMetrics(
+        release: PoseFrame,
+        dip: PoseFrame
+    ): BiomechanicalMetrics {
+        val releaseLandmarks = release.landmarks
+        val dipLandmarks = dip.landmarks
 
-    private fun computeMetrics(release: PoseFrame, dip: PoseFrame): BiomechanicalMetrics {
-        val rL = release.landmarks
-        val dL = dip.landmarks
-
-        val (shoulder, elbow, wrist, hip, knee, ankle, oppositeAnkle) = if (handedness == Handedness.RIGHT) {
+        val joints = if (handedness == Handedness.RIGHT) {
             JointSet(
-                rL[PoseLandmarkIndex.RIGHT_SHOULDER],
-                rL[PoseLandmarkIndex.RIGHT_ELBOW],
-                rL[PoseLandmarkIndex.RIGHT_WRIST],
-                dL[PoseLandmarkIndex.RIGHT_HIP],
-                dL[PoseLandmarkIndex.RIGHT_KNEE],
-                dL[PoseLandmarkIndex.RIGHT_ANKLE],
-                dL[PoseLandmarkIndex.LEFT_ANKLE]
+                shoulder = releaseLandmarks[PoseLandmarkIndex.RIGHT_SHOULDER],
+                elbow = releaseLandmarks[PoseLandmarkIndex.RIGHT_ELBOW],
+                wrist = releaseLandmarks[PoseLandmarkIndex.RIGHT_WRIST],
+                hip = dipLandmarks[PoseLandmarkIndex.RIGHT_HIP],
+                knee = dipLandmarks[PoseLandmarkIndex.RIGHT_KNEE],
+                ankle = dipLandmarks[PoseLandmarkIndex.RIGHT_ANKLE],
+                oppositeAnkle = dipLandmarks[PoseLandmarkIndex.LEFT_ANKLE]
             )
         } else {
             JointSet(
-                rL[PoseLandmarkIndex.LEFT_SHOULDER],
-                rL[PoseLandmarkIndex.LEFT_ELBOW],
-                rL[PoseLandmarkIndex.LEFT_WRIST],
-                dL[PoseLandmarkIndex.LEFT_HIP],
-                dL[PoseLandmarkIndex.LEFT_KNEE],
-                dL[PoseLandmarkIndex.LEFT_ANKLE],
-                dL[PoseLandmarkIndex.RIGHT_ANKLE]
+                shoulder = releaseLandmarks[PoseLandmarkIndex.LEFT_SHOULDER],
+                elbow = releaseLandmarks[PoseLandmarkIndex.LEFT_ELBOW],
+                wrist = releaseLandmarks[PoseLandmarkIndex.LEFT_WRIST],
+                hip = dipLandmarks[PoseLandmarkIndex.LEFT_HIP],
+                knee = dipLandmarks[PoseLandmarkIndex.LEFT_KNEE],
+                ankle = dipLandmarks[PoseLandmarkIndex.LEFT_ANKLE],
+                oppositeAnkle = dipLandmarks[PoseLandmarkIndex.RIGHT_ANKLE]
             )
         }
 
-        val elbowAngle = Geometry.angleDeg(shoulder, elbow, wrist)
+        val indexIndex = if (handedness == Handedness.RIGHT) {
+            PoseLandmarkIndex.RIGHT_INDEX
+        } else {
+            PoseLandmarkIndex.LEFT_INDEX
+        }
 
-        val kneeAngle = Geometry.angleDeg(hip, knee, ankle)
+        val index = releaseLandmarks.getOrNull(indexIndex)
+            ?.takeIf { it.visibility >= 0.5f }
+            ?: joints.wrist
 
-        val indexIdx = if (handedness == Handedness.RIGHT) PoseLandmarkIndex.RIGHT_INDEX else PoseLandmarkIndex.LEFT_INDEX
-        val index = rL.getOrNull(indexIdx) ?: wrist
-        val wristAngle = Geometry.angleDeg(elbow, wrist, index)
+        val elbowAngle = Geometry.angleDeg(joints.shoulder, joints.elbow, joints.wrist)
+        val kneeAngle = Geometry.angleDeg(joints.hip, joints.knee, joints.ankle)
+        val wristAngle = Geometry.angleDeg(joints.elbow, joints.wrist, index)
+        val elbowAlignment = Geometry.horizontalOffset(joints.elbow, joints.shoulder)
 
-        val elbowAlign = Geometry.horizontalOffset(elbow, shoulder)
-
-        val nose = rL[PoseLandmarkIndex.NOSE]
-        val bodyHeight = (nose.y - ankle.y).absoluteValue.coerceAtLeast(0.001f)
-        val releaseAboveShoulder = (shoulder.y - wrist.y).coerceAtLeast(0f)
+        val nose = releaseLandmarks[PoseLandmarkIndex.NOSE]
+        val bodyHeight = (nose.y - joints.ankle.y).absoluteValue.coerceAtLeast(0.001f)
+        val releaseAboveShoulder = (joints.shoulder.y - joints.wrist.y).coerceAtLeast(0f)
         val releaseRatio = (releaseAboveShoulder / bodyHeight).coerceIn(0f, 1f)
-
-        val stanceBalance = 1f - Geometry.horizontalOffset(ankle, oppositeAnkle).coerceIn(0f, 1f)
+        val stanceBalance = 1f - Geometry.horizontalOffset(
+            joints.ankle,
+            joints.oppositeAnkle
+        ).coerceIn(0f, 1f)
 
         return BiomechanicalMetrics(
             elbowAngleDeg = elbowAngle,
             kneeAngleDeg = kneeAngle,
             wristFollowThroughDeg = wristAngle,
-            elbowAlignmentOffset = elbowAlign,
+            elbowAlignmentOffset = elbowAlignment,
             releaseHeightRatio = releaseRatio,
             stanceBalance = stanceBalance
         )
     }
 
-    private data class JointSet(
-        val shoulder: PoseLandmark, val elbow: PoseLandmark, val wrist: PoseLandmark,
-        val hip: PoseLandmark, val knee: PoseLandmark, val ankle: PoseLandmark,
-        val oppositeAnkle: PoseLandmark
-    )
-
-    private fun detectIssues(m: BiomechanicalMetrics): List<FormIssue> = buildList {
+    private fun detectIssues(metrics: BiomechanicalMetrics): List<FormIssue> = buildList {
         when {
-            m.elbowAngleDeg < 70 -> add(FormIssue(
-                BodyArea.ELBOW, Severity.MAJOR,
-                "Shooting elbow is too bent (${m.elbowAngleDeg.toInt()}°). Aim for ~90° at release."
-            ))
-            m.elbowAngleDeg < 80 -> add(FormIssue(
-                BodyArea.ELBOW, Severity.MINOR,
-                "Elbow slightly too bent — try to fully extend on release."
-            ))
-            m.elbowAngleDeg > 170 -> Unit
-            m.elbowAngleDeg in 95f..170f -> Unit
+            metrics.elbowAngleDeg < 70f -> add(
+                FormIssue(
+                    BodyArea.ELBOW,
+                    Severity.MAJOR,
+                    "Shooting elbow is too bent (${metrics.elbowAngleDeg.toInt()}°)."
+                )
+            )
+
+            metrics.elbowAngleDeg < 80f -> add(
+                FormIssue(
+                    BodyArea.ELBOW,
+                    Severity.MINOR,
+                    "Elbow is slightly too bent at release."
+                )
+            )
         }
 
-        if (m.elbowAlignmentOffset > 0.08f) add(FormIssue(
-            BodyArea.SHOOTING_HAND, Severity.MODERATE,
-            "Shooting elbow is flared out — keep it tucked under the ball."
-        ))
-
-        when {
-            m.kneeAngleDeg > 160 -> add(FormIssue(
-                BodyArea.KNEES, Severity.MAJOR,
-                "Legs barely bent (${m.kneeAngleDeg.toInt()}°). Bend your knees to generate power from the ground."
-            ))
-            m.kneeAngleDeg > 145 -> add(FormIssue(
-                BodyArea.KNEES, Severity.MINOR,
-                "Slightly stiff legs — a deeper dip will give you a smoother shot."
-            ))
-            m.kneeAngleDeg < 90 -> add(FormIssue(
-                BodyArea.KNEES, Severity.MODERATE,
-                "Squatting too deep — wastes energy and slows release."
-            ))
+        if (metrics.elbowAlignmentOffset > 0.08f) {
+            add(
+                FormIssue(
+                    BodyArea.SHOOTING_HAND,
+                    Severity.MODERATE,
+                    "Shooting elbow is flared out. Keep it more directly under the ball."
+                )
+            )
         }
 
-        if (m.wristFollowThroughDeg > 150) add(FormIssue(
-            BodyArea.SHOOTING_HAND, Severity.MODERATE,
-            "Limp follow-through — snap the wrist down for backspin."
-        ))
+        when {
+            metrics.kneeAngleDeg > 160f -> add(
+                FormIssue(
+                    BodyArea.KNEES,
+                    Severity.MAJOR,
+                    "Leg drive is limited. Bend your knees more before extending."
+                )
+            )
 
-        if (m.releaseHeightRatio < 0.10f) add(FormIssue(
-            BodyArea.SHOULDER, Severity.MINOR,
-            "Release point is low — finish high, with arm fully extended."
-        ))
+            metrics.kneeAngleDeg > 145f -> add(
+                FormIssue(
+                    BodyArea.KNEES,
+                    Severity.MINOR,
+                    "A slightly deeper knee dip can improve power transfer."
+                )
+            )
 
-        if (m.stanceBalance < 0.85f) add(FormIssue(
-            BodyArea.FEET, Severity.MINOR,
-            "Feet are uneven — set a balanced, shoulder-width stance."
-        ))
+            metrics.kneeAngleDeg < 90f -> add(
+                FormIssue(
+                    BodyArea.KNEES,
+                    Severity.MODERATE,
+                    "The knee dip is very deep and may slow the release."
+                )
+            )
+        }
+
+        if (metrics.wristFollowThroughDeg > 150f) {
+            add(
+                FormIssue(
+                    BodyArea.SHOOTING_HAND,
+                    Severity.MODERATE,
+                    "Wrist follow-through is limited. Finish with a stronger wrist snap."
+                )
+            )
+        }
+
+        if (metrics.releaseHeightRatio < 0.10f) {
+            add(
+                FormIssue(
+                    BodyArea.SHOULDER,
+                    Severity.MINOR,
+                    "Release point is low relative to body height."
+                )
+            )
+        }
+
+        if (metrics.stanceBalance < 0.85f) {
+            add(
+                FormIssue(
+                    BodyArea.FEET,
+                    Severity.MINOR,
+                    "Stance appears uneven. Keep a stable, repeatable base."
+                )
+            )
+        }
     }
 
-
-    private fun scoreFromMetrics(m: BiomechanicalMetrics, issues: List<FormIssue>): Triple<Int, Int, Int> {
-        val techPenalty = issues.sumOf {
-            when (it.severity) {
+    private fun scoreFromMetrics(
+        metrics: BiomechanicalMetrics,
+        issues: List<FormIssue>
+    ): Triple<Int, Int, Int> {
+        val techniquePenalty = issues.sumOf { issue ->
+            when (issue.severity) {
                 Severity.MINOR -> 5
                 Severity.MODERATE -> 12
                 Severity.MAJOR -> 22
             }
         }
-        val technique = (100 - techPenalty).coerceIn(0, 100)
 
-        val elbowDelta = abs(m.elbowAngleDeg - 90f).coerceAtMost(45f)
-        val kneeDelta = abs(m.kneeAngleDeg - 125f).coerceAtMost(45f)
+        val technique = (100 - techniquePenalty).coerceIn(0, 100)
+
+        val elbowDelta = abs(metrics.elbowAngleDeg - 90f).coerceAtMost(45f)
+        val kneeDelta = abs(metrics.kneeAngleDeg - 125f).coerceAtMost(45f)
         val style = (100 - (elbowDelta + kneeDelta).toInt()).coerceIn(0, 100)
 
-        val alignBonus = (1f - (m.elbowAlignmentOffset * 8f).coerceIn(0f, 1f)) * 35f
-        val heightBonus = (m.releaseHeightRatio * 4f).coerceIn(0f, 1f) * 30f
-        val followBonus = ((180f - m.wristFollowThroughDeg).coerceIn(0f, 110f) / 110f) * 35f
-        val accuracy = (alignBonus + heightBonus + followBonus).toInt().coerceIn(0, 100)
+        val alignmentBonus = (
+                1f - (metrics.elbowAlignmentOffset * 8f).coerceIn(0f, 1f)
+                ) * 35f
+        val heightBonus = (metrics.releaseHeightRatio * 4f).coerceIn(0f, 1f) * 30f
+        val followThroughBonus = (
+                (180f - metrics.wristFollowThroughDeg).coerceIn(0f, 110f) / 110f
+                ) * 35f
+
+        val accuracy = (
+                alignmentBonus + heightBonus + followThroughBonus
+                ).toInt().coerceIn(0, 100)
 
         return Triple(accuracy, style, technique)
     }
 
-
-    private fun buildSuggestions(issues: List<FormIssue>, m: BiomechanicalMetrics): List<String> {
-        val tips = issues.map { it.message }.toMutableList()
-        if (tips.isEmpty()) {
-            tips += "Great form! Keep your routine consistent and trust the process."
-        } else {
-            tips += "Try the BEEF cue: Balance, Eyes on target, Elbow under, Follow-through."
+    private fun buildSuggestions(issues: List<FormIssue>): List<String> {
+        if (issues.isEmpty()) {
+            return listOf(
+                "Form is consistent in the captured sequence.",
+                "Keep the same setup and follow-through on every free throw."
+            )
         }
-        return tips
+
+        return issues.map { it.message } +
+                "Use the BEEF cue: Balance, Eyes, Elbow, Follow-through."
     }
+
+    private data class JointSet(
+        val shoulder: PoseLandmark,
+        val elbow: PoseLandmark,
+        val wrist: PoseLandmark,
+        val hip: PoseLandmark,
+        val knee: PoseLandmark,
+        val ankle: PoseLandmark,
+        val oppositeAnkle: PoseLandmark
+    )
 }

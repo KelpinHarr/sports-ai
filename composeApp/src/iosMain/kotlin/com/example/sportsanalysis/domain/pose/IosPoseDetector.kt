@@ -4,14 +4,10 @@ import com.example.sportsanalysis.domain.model.PoseFrame
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.emptyFlow
 
-class IosPoseDetector : PoseDetector {
-    private val frames = MutableSharedFlow<PoseFrame>()
-    override suspend fun initialize() { /* no-op stub */ }
-    override fun detectStream(): Flow<PoseFrame> = frames.asSharedFlow()
-    override suspend fun release() { /* no-op stub */ }
-}
-
-actual class PoseDetectorFactory {
-    actual fun create(): PoseDetector = IosPoseDetector()
+internal class IosPoseDetector : PoseDetector {
+    override fun initialize() = Unit
+    override fun detectStream(): Flow<PoseFrame> = emptyFlow()
+    override fun release() = Unit
 }
